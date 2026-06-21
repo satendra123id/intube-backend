@@ -1,0 +1,47 @@
+const express = require('express');
+const multer = require('multer');
+const axios = require('axios');
+const FormData = require('form-data');
+const fs = require('fs');
+
+const app = express();
+const upload = multer({ dest: 'uploads/' });
+
+// Aapki details yahan hain
+const TELEGRAM_BOT_TOKEN = '8614752449:AAFiqOv4F4NEVYArqO4Ti6Mz9UgKkmeS_w8'; 
+const CHAT_ID = '-1004362065864';
+
+// CORS error se bachne ke liye
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    next();
+});
+
+app.post('/upload-video', upload.single('video'), async (req, res) => {
+    try {
+        const filePath = req.file.path;
+        const form = new FormData();
+        
+        form.append('chat_id', CHAT_ID);
+        form.append('video', fs.createReadStream(filePath));
+
+        const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendVideo`;
+        
+        const response = await axios.post(telegramUrl, form, {
+            headers: form.getHeaders(),
+        });
+
+        const fileId = response.data.result.video.file_id;
+        fs.unlinkSync(filePath); // temporary file delete karein
+
+        res.json({ success: true, message: 'Video uploaded to Telegram!', fileId: fileId });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, error: 'Upload failed' });
+    }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Intube Backend is running on port ${PORT}`));
